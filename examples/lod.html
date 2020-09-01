@@ -40,8 +40,6 @@
         // Todo: remove not used vars
 
 		var origin = [-122.4340, 37.7353];
-		var origin_sphere = [-122.4345, 37.735];
-		var origin_yellow = [-122.4350, 37.736];
 
 		var destination, line;
 		var y_block, g_block, ran_g, ran_y;
@@ -57,27 +55,6 @@
 			bearing: 90,
 			hash: true
 		});
-
-		
-		const green_block_options = {
-			type: 'mtl',
-			obj: 'models/sphere.obj',
-			mtl: 'models/sphere.mtl',
-			scale: 20,
-			units: 'meters',
-			rotation: { x: 90, y: 180, z: 0 },
-		}
-
-		const yellow_block_options = {
-			type: 'mtl',
-			obj: 'models/yellow_block.obj',
-			mtl: 'models/green_block.mtl',
-			scale: 20,
-			units: 'meters',
-			rotation: { x: 90, y: 180, z: 0 },
-		}
-
-
 
 		map.on('style.load', function () {
 
