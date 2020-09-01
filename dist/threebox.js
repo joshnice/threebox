@@ -108,6 +108,9 @@ Threebox.prototype = {
 		if (this.options.enableRotatingObjects) this.enableRotatingObjects = this.options.enableRotatingObjects;
 		if (this.options.enableTooltips) this.enableTooltips = this.options.enableTooltips;
 
+		this.zoom_level;
+		this.lod_enabled = false;
+		
 		//[jscastro] new event map on load
 		this.map.on('load', function () {
 
@@ -640,6 +643,12 @@ Threebox.prototype = {
 		// [jscastro] Render any label
 		this.labelRenderer.render(this.scene, this.camera);
 
+		const map_zoom = this.map.getZoom();
+		if (this.zoom_level !== map_zoom) {
+			this.zoom_level = map_zoom;
+			this.checkForLODChange();
+		}
+
 		if (this.options.passiveRendering === false) this.map.triggerRepaint();
 	},
 
@@ -812,6 +821,53 @@ Threebox.prototype = {
 		this.scene.add(this.lights.hemiLight);
 		this.setSunlight();
 
+	},
+	
+	initLOD: function (current_obj, zoom_level) {
+		this.lod_enabled = true;
+		current_obj.lod = [{obj: current_obj, zoom: zoom_level}];
+	},
+
+	addLODLevel: function(current_obj, zoom_level, new_obj) {
+		if (!current_obj.lod) {
+			throw Error('LOD for this object has not been initialised');
+		}
+
+		current_obj.lod.push({obj: new_obj, zoom: zoom_level});
+	},
+
+	checkForLODChange: function() {
+
+
+		const map_objects = this.scene.children[0].children;
+
+
+		map_objects.forEach((object) => {
+			
+			if (object.lod) {
+
+				const lod_values = object.lod;
+				let closest_zoom_value;
+
+				lod_values.forEach((lod) => {
+
+					const value = Math.abs(this.zoom_level - lod.zoom);
+					if (closest_zoom_value == null || value < closest_zoom_value.value) {
+						closest_zoom_value = {zoom: lod.zoom, value: value}
+					}
+
+				});
+								
+				const chosen_lod_object = lod_values.find(lod_value => lod_value.zoom === closest_zoom_value.zoom);
+
+				if (chosen_lod_object && chosen_lod_object.obj.uuid !== object.uuid) {
+					this.remove(object);
+					const new_model = chosen_lod_object.obj.setCoords(object.coordinates);
+					new_model.lod = lod_values;
+					this.add(new_model);
+				}
+			}
+		});
 	},
 
 	memory: function () { return this.renderer.info.memory },
