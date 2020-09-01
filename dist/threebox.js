@@ -838,27 +838,22 @@ Threebox.prototype = {
 
 	checkForLODChange: function() {
 
-
 		const map_objects = this.scene.children[0].children;
-
-
+		
 		map_objects.forEach((object) => {
 			
-			if (object.lod) {
+			if (object.lod) {	
 
 				const lod_values = object.lod;
 				let closest_zoom_value;
 
 				lod_values.forEach((lod) => {
-
-					const value = Math.abs(this.zoom_level - lod.zoom);
-					if (closest_zoom_value == null || value < closest_zoom_value.value) {
-						closest_zoom_value = {zoom: lod.zoom, value: value}
+					if (closest_zoom_value == null || (lod.zoom < this.zoom_level && lod.zoom > closest_zoom_value)) {
+						closest_zoom_value = lod.zoom;
 					}
-
 				});
-								
-				const chosen_lod_object = lod_values.find(lod_value => lod_value.zoom === closest_zoom_value.zoom);
+
+				const chosen_lod_object = lod_values.find(lod_value => lod_value.zoom === closest_zoom_value);
 
 				if (chosen_lod_object && chosen_lod_object.obj.uuid !== object.uuid) {
 					this.remove(object);
