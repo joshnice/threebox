@@ -656,7 +656,6 @@ Threebox.prototype = {
 		//[jscastro] remove the tooltip if not enabled
 		if (!this.enableTooltips && obj.tooltip) { obj.tooltip.visibility = false };
 		if (this.lod_enabled && obj.lod) {obj = this.checkCurrentLODLevel(obj)}
-		console.log('obj', obj);
 		this.world.add(obj);
 	},
 
@@ -854,7 +853,6 @@ Threebox.prototype = {
 					this.remove(object);
 					const new_model = chosen_lod_object.obj.setCoords(object.coordinates);
 					new_model.lod = lod_values;
-					console.log('new model', new_model);
 					this.add(new_model);
 				}
 			}
