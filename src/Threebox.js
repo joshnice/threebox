@@ -819,11 +819,15 @@ Threebox.prototype = {
 
 	},
 	
+	// Todo: add js docs
 	initLOD: function (current_obj, zoom_level) {
 		this.lod_enabled = true;
 		current_obj.lod = [{obj: current_obj, zoom: zoom_level}];
 	},
 
+	// Todo: add a remove LOD function
+
+	// Todo: add js docs
 	addLODLevel: function(current_obj, zoom_level, new_obj) {
 		if (!current_obj.lod) {
 			throw Error('LOD for this object has not been initialised');
@@ -831,6 +835,8 @@ Threebox.prototype = {
 		current_obj.lod.push({obj: new_obj, zoom: zoom_level});
 	},
 
+	// Todo: add js docs
+	// Todo: clean up code
 	checkForLODChange: function() {
 
 		const map_objects = this.scene.children[0].children;
@@ -854,6 +860,8 @@ Threebox.prototype = {
 		});
 	},
 
+	// Todo: add js docs
+	// Todo: clean up code
 	checkCurrentLODLevel: function (object) {
 		const lod_values = object.lod;
 		const closest_zoom_value = this.findObjectToBeDisplayed(lod_values);
@@ -865,6 +873,8 @@ Threebox.prototype = {
 		return object;
 	},
 
+	// Todo: add js docs
+	// Todo: clean up code
 	findObjectToBeDisplayed(lod_values) {
 		let closest_zoom_value;
 
