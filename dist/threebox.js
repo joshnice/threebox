@@ -655,6 +655,8 @@ Threebox.prototype = {
 	add: function (obj) {
 		//[jscastro] remove the tooltip if not enabled
 		if (!this.enableTooltips && obj.tooltip) { obj.tooltip.visibility = false };
+		if (this.lod_enabled && obj.lod) {obj = this.checkCurrentLODLevel(obj)}
+		console.log('obj', obj);
 		this.world.add(obj);
 	},
 
@@ -832,39 +834,55 @@ Threebox.prototype = {
 		if (!current_obj.lod) {
 			throw Error('LOD for this object has not been initialised');
 		}
-
 		current_obj.lod.push({obj: new_obj, zoom: zoom_level});
 	},
 
 	checkForLODChange: function() {
 
 		const map_objects = this.scene.children[0].children;
-		
+
 		map_objects.forEach((object) => {
-			
-			if (object.lod) {	
 
-				const lod_values = object.lod;
-				let closest_zoom_value;
+			const lod_values = object.lod;
 
-				lod_values.forEach((lod) => {
-					if (closest_zoom_value == null || (lod.zoom < this.zoom_level && lod.zoom > closest_zoom_value)) {
-						closest_zoom_value = lod.zoom;
-					}
-				});
+			if (lod_values) {
 
+				const closest_zoom_value = this.findObjectToBeDisplayed(lod_values);
 				const chosen_lod_object = lod_values.find(lod_value => lod_value.zoom === closest_zoom_value);
 
 				if (chosen_lod_object && chosen_lod_object.obj.uuid !== object.uuid) {
 					this.remove(object);
 					const new_model = chosen_lod_object.obj.setCoords(object.coordinates);
 					new_model.lod = lod_values;
+					console.log('new model', new_model);
 					this.add(new_model);
 				}
 			}
 		});
 	},
 
+	checkCurrentLODLevel: function (object) {
+		const lod_values = object.lod;
+		const closest_zoom_value = this.findObjectToBeDisplayed(lod_values);
+		const coordinates = object.coordinates;
+		let chosen_lod_object = lod_values.find(lod_value => lod_value.zoom === closest_zoom_value);
+		object = chosen_lod_object.obj;
+		object.lod = lod_values;
+		object.setCoords(coordinates);
+		return object;
+	},
+
+	findObjectToBeDisplayed(lod_values) {
+		let closest_zoom_value;
+
+		lod_values.forEach((lod) => {
+			if (closest_zoom_value == null || (lod.zoom < this.zoom_level && lod.zoom > closest_zoom_value)) {
+				closest_zoom_value = lod.zoom;
+			}
+		});
+		return closest_zoom_value;
+	},
+	
 	memory: function () { return this.renderer.info.memory },
 
 	programs: function () { return this.renderer.info.programs.length },

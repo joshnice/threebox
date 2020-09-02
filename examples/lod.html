@@ -50,7 +50,7 @@
 			container: 'map',
 			style: 'mapbox://styles/mapbox/dark-v9',
 			center: origin,
-			zoom: 17,
+			zoom: 20,
 			pitch: 60,
 			bearing: 90,
 			hash: true
@@ -88,7 +88,7 @@
 			model_a = models[0];
 			model_b = models[1];
 
-			const new_model =  tb.Object3D({obj: model_a});
+			let new_model =  tb.Object3D({obj: model_a});
 			const new_model_b = tb.Object3D({obj: model_b});
 			new_model.setCoords(origin);
 
@@ -96,6 +96,7 @@
 			tb.initLOD(new_model, 18);
 			tb.addLODLevel(new_model, 19, new_model_b);
 
+			console.log('model_to_add', new_model);
 			tb.add(new_model);
         }
 
