@@ -29,22 +29,13 @@
 	<div id='map' class='map'></div>
 	<script>
 
-		// This example downloads a truck model from an external OBJ/MTL file, adds it to the map, and drives it around via paths fetched from the Mapbox Directions API
+		// This is an example of level of detail, when the zoom level becomes 18 a new model will appear replacing the previous one
 
 		if (!config) console.error("Config not set! Make a copy of 'config_template.js', add in your access token, and save the file as 'config.js'.");
 
 		mapboxgl.accessToken = config.accessToken;
-
         var THREE;
-        
-        // Todo: remove not used vars
-
 		var origin = [-122.4340, 37.7353];
-
-		var destination, line;
-		var y_block, g_block, ran_g, ran_y;
-
-		var lorry_a, lorry_b;
 
 		var map = new mapboxgl.Map({
 			container: 'map',
@@ -56,23 +47,19 @@
 			hash: true
 		});
 
-		map.on('style.load', function () {
 
-			map
-				.addLayer({
+		map.on('style.load', function () {
+			map.addLayer({
 					id: 'custom_layer',
 					type: 'custom',
 					renderingMode: '3d',
 					onAdd: function (map, mbxContext) {
-
 						window.tb = new Threebox(
 							map,
 							mbxContext,
 							{ defaultLights: true }
 						);
-
-						loadModelExternal();
-
+						loadModels();
 					},
 
 					render: function (gl, matrix) {
@@ -81,30 +68,45 @@
 				});
 		})
 
-        //Todo: add comments
+        // Loads two different objects
+		async function loadModels() {
+			const lorry_1 = await loadLorry('lorry_1');
+			const lorry_2 = await loadLorry('lorry_2');
+			createLevelsArray(lorry_1, lorry_2)
+		}
 
-		function createLevelsArray(models) {
+		// Returns an object once it has loaded
+		function loadLorry(name) {
+			return new Promise(function(resolve, reject) {
+				tb.loadObj(createLorryOption(name), (model) => {
+					resolve(model);
+				});
+			});
+		}
 
-			model_a = models[0];
-			model_b = models[1];
+		// Adds the lorry models to the different lod levels
+		function createLevelsArray(lorry_1, lorry_2) {
+			lorry_1.setCoords(origin);
 
-			let new_model =  tb.Object3D({obj: model_a});
-			const new_model_b = tb.Object3D({obj: model_b});
-			new_model.setCoords(origin);
+			// function is used to initialise the current object so LOD can be used
+			// parameters: object being added, zoom level for LOD level
+			tb.initLOD(lorry_1, 18);
 
-			
-			tb.initLOD(new_model, 18);
-			tb.addLODLevel(new_model, 19, new_model_b);
+			// function is to add LOD level, needs initLOD to be called first
+			// parameters: model LOD level to be added to, zoom level, model to be added as the LOD level
+			tb.addLODLevel(lorry_1, 19, lorry_2);
+			tb.add(lorry_1);
+		}
 
-			console.log('model_to_add', new_model);
-			tb.add(new_model);
-        }
-
-        //Todo: refactor
-		function loadModelExternal() {
-			const loader = new THREE.GLTFLoader();
-			loader.load('models/lorry_1.glb', (model) => {lorry_a = model.scene; if (lorry_a && lorry_b){createLevelsArray([lorry_a, lorry_b])}}, () => {}, (err) => {console.error(err)});
-			loader.load('models/lorry_2.glb', (model) => {lorry_b = model.scene; if (lorry_a && lorry_b){createLevelsArray([lorry_a, lorry_b])}}, () => {}, (err) => {console.error(err)});
+		// returns an options object for when model is added
+		function createLorryOption(name) {
+			return {
+				obj: 'models/' + name + '.glb',
+				type: 'gltf',
+				scale: 50,
+				units: 'meters',
+				rotation: { x: 0, y: 0, z: 0 }
+			}
 		}
 
 	</script>
