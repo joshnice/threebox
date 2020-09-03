@@ -88,13 +88,11 @@
 		function createLevelsArray(lorry_1, lorry_2) {
 			lorry_1.setCoords(origin);
 
-			// function is used to initialise the current object so LOD can be used
-			// parameters: object being added, zoom level for LOD level
-			tb.initLOD(lorry_1, 18);
-
-			// function is to add LOD level, needs initLOD to be called first
-			// parameters: model LOD level to be added to, zoom level, model to be added as the LOD level
+			// function is to add LOD level
+			// parameters: parent object of what the LOD level is being added to, zoom level, model to be added as a LOD level
+			tb.addLODLevel(lorry_1, 18);
 			tb.addLODLevel(lorry_1, 19, lorry_2);
+			console.log('lorry 1', lorry_1);
 			tb.add(lorry_1);
 		}
 

@@ -824,21 +824,36 @@ Threebox.prototype = {
 
 	},
 	
-	// Todo: add js docs
-	initLOD: function (current_obj, zoom_level) {
+	/**
+	 * [joshnice]
+	 * Adds a LOD array as a property to the object with the zoom level
+	 * @param {Object} parent_object - a Threebox object which LOD is being added to
+	 * @param {number} zoom_level - zoom level where the model will change
+	 */
+	initLOD: function (object, zoom_level) {
 		this.lod_enabled = true;
-		current_obj.lod = [{obj: current_obj, zoom: zoom_level}];
+		object.lod = [{obj: object, zoom: zoom_level}];
+	},
+
+	/**
+	 * [joshnice]
+	 * Adds a level (object and zoom level) to LOD, if there is no LOD then create an LOD property
+	 * @param {Object} parent_object - a Threebox object which LOD is being added to
+	 * @param {number} zoom_level - zoom level where the model will change
+	 * @param {Object} lod_object - a Threebox object which is being added to the LOD array
+	 */
+	addLODLevel: function(parent_object, zoom_level, lod_object = false) {
+
+		if (!parent_object.lod) {
+			this.initLOD(parent_object, zoom_level);
+		}
+
+		if (lod_object) {
+			parent_object.lod.push({obj: lod_object, zoom: zoom_level});
+		}
 	},
 
 	// Todo: add a remove LOD function
-
-	// Todo: add js docs
-	addLODLevel: function(current_obj, zoom_level, new_obj) {
-		if (!current_obj.lod) {
-			throw Error('LOD for this object has not been initialised');
-		}
-		current_obj.lod.push({obj: new_obj, zoom: zoom_level});
-	},
 
 	// Todo: add js docs
 	// Todo: clean up code
