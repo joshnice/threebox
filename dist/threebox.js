@@ -853,6 +853,55 @@ Threebox.prototype = {
 		}
 	},
 
+	/**
+	 * [joshnice]
+	 * Checks if a LOD level can be removed and if it can remove that LOD level and change model if needed
+	 * @param {Object} parent_object - a Threebox object which a LOD level is being removed
+	 * @param {number} zoom_level - zoom level where the model is being removed
+	 */
+	removeLODLevel: function(parent_object, zoom_level) {
+
+		// TODO: add check for if model is currently selected
+
+		if (!this.removeLODChecks(parent_object)) {
+			const lod_levels = [...parent_object.lod];
+			const level_index = lod_levels.findIndex(level => level.zoom === zoom_level);
+			if (level_index !== -1) {
+				const new_lod_left = lod_levels.slice(0, level_index);
+				const new_lod_right = lod_levels.slice(level_index, lod_levels.length - 1);
+				parent_object.lod = [...new_lod_left, ...new_lod_right];
+			}
+		}
+	},
+
+	/**
+	 * [joshnice]
+	 * Removes the LOD array from the given object
+	 * @param {Object} parent_object - a Threebox object where the LOD property is being removed
+	 */
+	removeLOD: function(parent_object) {
+		delete parent_object.lod;
+	},
+
+	/**
+	 * [joshnice]
+	 * Checks if a LOD array is present and if the lod array is greater than 1 in length, if it is remove the LOD array 
+	 * @param {Object} parent_object - Threebox object where the LOD array is being checked
+	 * @returns {boolean} - whether a LOD level can be removed or not
+	 */
+	removeLODChecks(parent_object) {
+		if (!parent_object.lod) {
+			console.warn('No LOD levels are present');
+			return true;
+		}
+
+		if (parent_object.lod.length <= 1) {
+			this.removeLOD(parent_object);
+			return true;
+		}
+	},
+	
+
 	// Todo: add a remove LOD function
 
 	// Todo: add js docs
