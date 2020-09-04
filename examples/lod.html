@@ -70,9 +70,9 @@
 
         // Loads two different objects
 		async function loadModels() {
-			const lorry_1 = await loadLorry('lorry_1');
-			const lorry_2 = await loadLorry('lorry_2');
-			createLevelsArray(lorry_1, lorry_2)
+			const red_lorry = await loadLorry('lorry_1');
+			const blue_lorry = await loadLorry('lorry_2');
+			createLevelsArray(red_lorry, blue_lorry)
 		}
 
 		// Returns an object once it has loaded
@@ -85,15 +85,14 @@
 		}
 
 		// Adds the lorry models to the different lod levels
-		function createLevelsArray(lorry_1, lorry_2) {
-			lorry_1.setCoords(origin);
-
+		function createLevelsArray(red_lorry, blue_lorry) {
+			red_lorry.setCoords(origin);
+			
 			// function is to add LOD level
 			// parameters: parent object of what the LOD level is being added to, zoom level, model to be added as a LOD level
-			tb.addLODLevel(lorry_1, 18);
-			tb.addLODLevel(lorry_1, 19, lorry_2);
-			console.log('lorry 1', lorry_1);
-			tb.add(lorry_1);
+			tb.addLODLevel(red_lorry, 18);
+			tb.addLODLevel(red_lorry, 19, blue_lorry);
+			tb.add(red_lorry);
 		}
 
 		// returns an options object for when model is added
