@@ -650,7 +650,7 @@ Threebox.prototype = {
 	add: function (obj) {
 		//[jscastro] remove the tooltip if not enabled
 		if (!this.enableTooltips && obj.tooltip) { obj.tooltip.visibility = false };
-		if (this.lod_enabled && obj.lod) {obj = this.checkCurrentLODLevel(obj)}
+		if (obj.lod_change) {obj = this.LODChangeID(obj)}
 		this.world.add(obj);
 	},
 
@@ -845,6 +845,10 @@ Threebox.prototype = {
 
 		if (lod_object) {
 			parent_object.lod.push({obj: lod_object, zoom: zoom_level});
+			const closest_zoom_value = this.findObjectToBeDisplayed(parent_object.lod); 
+			const chosen_lod_object = parent_object.lod.find(lod_value => lod_value.zoom === closest_zoom_value);
+
+			parent_object.lod_change = chosen_lod_object.obj.uuid;
 		}
 	},
 
@@ -897,8 +901,6 @@ Threebox.prototype = {
 	},
 	
 
-	// Todo: add a remove LOD function
-
 	// Todo: add js docs
 	// Todo: clean up code
 	checkForLODChange: function() {
@@ -926,19 +928,6 @@ Threebox.prototype = {
 
 	// Todo: add js docs
 	// Todo: clean up code
-	checkCurrentLODLevel: function (object) {
-		const lod_values = object.lod;
-		const closest_zoom_value = this.findObjectToBeDisplayed(lod_values);
-		const coordinates = object.coordinates;
-		let chosen_lod_object = lod_values.find(lod_value => lod_value.zoom === closest_zoom_value);
-		object = chosen_lod_object.obj;
-		object.lod = lod_values;
-		object.setCoords(coordinates);
-		return object;
-	},
-
-	// Todo: add js docs
-	// Todo: clean up code
 	findObjectToBeDisplayed(lod_values) {
 		let closest_zoom_value;
 
@@ -948,6 +937,17 @@ Threebox.prototype = {
 			}
 		});
 		return closest_zoom_value;
+	},
+
+	LODChangeID(object) {
+		const lod_levels = [...object.lod];;
+		const coordinates = object.coordinates;
+		const correct_lod_level = lod_levels.find(level => level.obj.uuid === object.lod_change).obj;
+		delete object.lod_change;
+
+		correct_lod_level.setCoords(coordinates);
+		correct_lod_level.lod = lod_levels;
+		return correct_lod_level;
 	},
 	
 	memory: function () { return this.renderer.info.memory },
