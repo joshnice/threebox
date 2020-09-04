@@ -851,7 +851,7 @@ Threebox.prototype = {
 		if (lod_object) {
 			parent_object.lod.push({obj: lod_object, zoom: zoom_level});
 			const new_lod_object = this.findNewLODObject(parent_object.lod); 
-			parent_object.lod_change = new_lod_object.obj.uuid;
+			parent_object.lod_change = new_lod_object.uuid;
 		}
 	},
 
@@ -917,9 +917,9 @@ Threebox.prototype = {
 			if (lod_values) {
 				const new_lod_object = this.findNewLODObject(lod_values);
 
-				if (new_lod_object && new_lod_object.obj.uuid !== object.uuid) {
+				if (new_lod_object && new_lod_object.uuid !== object.uuid) {
 					this.remove(object);
-					const new_model = new_lod_object.obj.setCoords(object.coordinates);
+					const new_model = new_lod_object.setCoords(object.coordinates);
 					new_model.lod = lod_values;
 					this.add(new_model);
 				}
@@ -937,7 +937,7 @@ Threebox.prototype = {
 				closest_zoom_value = lod.zoom;
 			}
 		});
-		return lod_values.find(lod_value => lod_value.zoom === closest_zoom_value);;
+		return lod_values.find(lod_value => lod_value.zoom === closest_zoom_value).obj;
 	},
 
 	LODChangeID(object) {
