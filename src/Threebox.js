@@ -650,7 +650,7 @@ Threebox.prototype = {
 	add: function (obj) {
 		//[jscastro] remove the tooltip if not enabled
 		if (!this.enableTooltips && obj.tooltip) { obj.tooltip.visibility = false };
-		if (obj.lod_change) {obj = this.LODChangeID(obj)}
+		if (obj.lod_change) {obj = this.initialCorrectObject(obj)}
 		this.world.add(obj);
 	},
 
@@ -898,9 +898,11 @@ Threebox.prototype = {
 		}
 	},
 	
-
-	// Todo: add js docs
-	// Todo: clean up code
+	/**
+	 * [joshnice]
+	 * Checks if the current object needs to be changed, if the object does need to be changed remove the old model and add the new one
+	 * NOTE: this function is called from the update function however is only called when the map zoom level is changed
+	 */
 	checkForLODChange: function() {
 
 		const map_objects = this.scene.children[0].children;
@@ -914,16 +916,21 @@ Threebox.prototype = {
 
 				if (new_lod_object && new_lod_object.uuid !== object.uuid) {
 					this.remove(object);
-					const new_model = new_lod_object.setCoords(object.coordinates);
-					new_model.lod = lod_values;
-					this.add(new_model);
+					const new_object = new_lod_object.setCoords(object.coordinates);
+					new_object.lod = lod_values;
+					this.add(new_object);
 				}
 			}
 		});
 	},
 
-	// Todo: add js docs
-	// Todo: clean up code
+	/**
+	 * [joshnice]
+	 * Finds the correct zoom level appropriate to the map zoom and returns the model which is realted to it
+	 * @param {[Object, number]} lod_values - an object which contains an Threebox object and a zoom level
+	 * @returns {Object} - returns a Threebox object which has been selected by the current zoom level
+	 * NOTE: The if statement could be changed for a new formula to working out the correct zoom level to select
+	 */
 	findNewLODObject(lod_values) {
 		let closest_zoom_value;
 
@@ -935,8 +942,14 @@ Threebox.prototype = {
 		return lod_values.find(lod_value => lod_value.zoom === closest_zoom_value).obj;
 	},
 
-	LODChangeID(object) {
-		const lod_levels = [...object.lod];;
+	/**
+	 * [joshnice]
+	 * Changes the object being added to the world to the correct one at the current zoom level
+	 * @param {Object} object - Threebox object which needs it's initial object corrected 
+	 * @returns {Object} - the object that should be shown at this current map zoom
+	 */
+	initialCorrectObject(object) {
+		const lod_levels = [...object.lod];
 		const coordinates = object.coordinates;
 		const correct_lod_level = lod_levels.find(level => level.obj.uuid === object.lod_change).obj;
 		delete object.lod_change;
