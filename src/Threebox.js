@@ -845,10 +845,8 @@ Threebox.prototype = {
 
 		if (lod_object) {
 			parent_object.lod.push({obj: lod_object, zoom: zoom_level});
-			const closest_zoom_value = this.findObjectToBeDisplayed(parent_object.lod); 
-			const chosen_lod_object = parent_object.lod.find(lod_value => lod_value.zoom === closest_zoom_value);
-
-			parent_object.lod_change = chosen_lod_object.obj.uuid;
+			const new_lod_object = this.findNewLODObject(parent_object.lod); 
+			parent_object.lod_change = new_lod_object.obj.uuid;
 		}
 	},
 
@@ -910,15 +908,13 @@ Threebox.prototype = {
 		map_objects.forEach((object) => {
 
 			const lod_values = object.lod;
-
+			
 			if (lod_values) {
+				const new_lod_object = this.findNewLODObject(lod_values);
 
-				const closest_zoom_value = this.findObjectToBeDisplayed(lod_values);
-				const chosen_lod_object = lod_values.find(lod_value => lod_value.zoom === closest_zoom_value);
-
-				if (chosen_lod_object && chosen_lod_object.obj.uuid !== object.uuid) {
+				if (new_lod_object && new_lod_object.obj.uuid !== object.uuid) {
 					this.remove(object);
-					const new_model = chosen_lod_object.obj.setCoords(object.coordinates);
+					const new_model = new_lod_object.obj.setCoords(object.coordinates);
 					new_model.lod = lod_values;
 					this.add(new_model);
 				}
@@ -928,7 +924,7 @@ Threebox.prototype = {
 
 	// Todo: add js docs
 	// Todo: clean up code
-	findObjectToBeDisplayed(lod_values) {
+	findNewLODObject(lod_values) {
 		let closest_zoom_value;
 
 		lod_values.forEach((lod) => {
@@ -936,7 +932,7 @@ Threebox.prototype = {
 				closest_zoom_value = lod.zoom;
 			}
 		});
-		return closest_zoom_value;
+		return lod_values.find(lod_value => lod_value.zoom === closest_zoom_value);;
 	},
 
 	LODChangeID(object) {
