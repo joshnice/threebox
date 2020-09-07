@@ -655,7 +655,7 @@ Threebox.prototype = {
 	add: function (obj) {
 		//[jscastro] remove the tooltip if not enabled
 		if (!this.enableTooltips && obj.tooltip) { obj.tooltip.visibility = false };
-		if (obj.lod_change) {obj = this.initialCorrectObject(obj)}
+		if (obj.lod_initial_add) {obj = this.initialCorrectObject(obj)}
 		this.world.add(obj);
 	},
 
@@ -850,8 +850,8 @@ Threebox.prototype = {
 
 		if (lod_object) {
 			parent_object.lod.push({obj: lod_object, zoom: zoom_level});
-			const new_lod_object = this.findNewLODObject(parent_object.lod); 
-			parent_object.lod_change = new_lod_object.uuid;
+			 
+			parent_object.lod_initial_add = true;
 		}
 	},
 
@@ -956,8 +956,8 @@ Threebox.prototype = {
 	initialCorrectObject(object) {
 		const lod_levels = [...object.lod];
 		const coordinates = object.coordinates;
-		const correct_lod_level = lod_levels.find(level => level.obj.uuid === object.lod_change).obj;
-		delete object.lod_change;
+		const correct_lod_level = this.findNewLODObject(lod_levels);
+		delete object.lod_initial_add;
 
 		correct_lod_level.setCoords(coordinates);
 		correct_lod_level.lod = lod_levels;
