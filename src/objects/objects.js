@@ -2,14 +2,11 @@
  * @author peterqliu / https://github.com/peterqliu
  * @author jscastro / https://github.com/jscastro76
  */
-
-var utils = require("../utils/utils.js");
-var material = require("../utils/material.js");
+const utils = require("../utils/utils.js");
+const material = require("../utils/material.js");
 const THREE = require('../three.js');
-
 const AnimationManager = require("../animation/AnimationManager.js");
 const CSS2D = require("./CSS2DRenderer.js");
-
 
 function Objects(){
 
@@ -47,8 +44,7 @@ Objects.prototype = {
 
 	},
 
-	_addMethods: function (obj, isStatic) {
-
+	unenroll: function (obj, isStatic) {
 		var root = this;
 
 		if (isStatic) {
@@ -56,39 +52,61 @@ Objects.prototype = {
 		}
 
 		else {
+			// Bestow this mesh with animation superpowers and keeps track of its movements in the global animation queue			
+			root.animationManager.unenroll(obj);
 
+		}
+
+	},
+
+	_addMethods: function (obj, isStatic) {
+
+		var root = this;
+		const labelName = "label";
+		const tooltipName = "tooltip";
+		const helpName = "help";
+		const shadowPlane = "shadowPlane";
+
+		if (isStatic) {
+
+		}
+
+		else {
+			
 			if (!obj.coordinates) obj.coordinates = [0, 0, 0];
+
+			//[jscastro] added property for the internal 3D model
+			Object.defineProperty(obj, 'model', {
+				get() {
+					return obj.getObjectByName("model");
+				}
+			});
+
+			let _animations;
+			//[jscastro] added property for the internal 3D model
+			Object.defineProperty(obj, 'animations', {
+				get() {
+					const model = obj.model;
+					if (model) {
+						return model.animations
+					} else return null;
+				},
+				//set(value) { _animations = value}
+			});
 
 			// Bestow this mesh with animation superpowers and keeps track of its movements in the global animation queue			
 			root.animationManager.enroll(obj);
 
+			// Place an object on the map at the given lnglat 
 			obj.setCoords = function (lnglat) {
-
-				/** Place the given object on the map, centered around the provided longitude and latitude
-					The object's internal coordinates are assumed to be in meter-offset format, meaning
-					1 unit represents 1 meter distance away from the provided coordinate.
-				*/
-
-				// If object already added, scale the model so that its units are interpreted as meters at the given latitude
-				//[jscastro] this method could be needed more times
-				if (obj.userData.units === 'meters') {
-					var s = utils.projectedUnitsPerMeter(lnglat[1]);
-					if (!s) { s = 1; };
-					s = Number(s.toFixed(7)); //this precision level is to avoid deviations on the size of the same object  
-					if (typeof s === 'number') obj.scale.set(s, s, s);
-					else obj.scale.set(s.x, s.y, s.z); 	//initialize the object size and it will rescale the rest
-				}
 
 				// CSS2DObjects could bring an specific vertical positioning to correct in units
 				if (obj.userData.topMargin && obj.userData.feature) {
-					lnglat[2] += (obj.userData.feature.properties.height - (obj.userData.feature.properties.base_height || obj.userData.feature.properties.min_height || 0)) * obj.userData.topMargin;
+					lnglat[2] += ((obj.userData.feature.properties.height || 0) - (obj.userData.feature.properties.base_height || obj.userData.feature.properties.min_height || 0)) * (obj.userData.topMargin || 0);
 				}
 
 				obj.coordinates = lnglat;
 				obj.set({ position: lnglat });
-				//Each time the object is positioned, set modelHeight property and project the floor
-				obj.modelHeight = obj.coordinates[2];
-				obj.setBoundingBoxShadowFloor();
 				return obj;
 
 			}
@@ -157,24 +175,36 @@ Objects.prototype = {
 				model.position.add(point); // re-add the offset
 				model.rotateOnAxis(axis, theta)
 
-				map.repaint = true;
+				tb.map.repaint = true;
 			}
 
-			let _boundingBox;
+
+			//[jscastro] added property for scaled group inside threeboxObject
+			Object.defineProperty(obj, 'scaleGroup', {
+				get() {
+					return obj.getObjectByName("scaleGroup");
+				}
+			})
+
+			//[jscastro] added property for boundingBox group helper
+			Object.defineProperty(obj, 'boxGroup', {
+				get() {
+					return obj.getObjectByName("boxGroup");
+				}
+			})
+
 			//[jscastro] added property for boundingBox helper
 			Object.defineProperty(obj, 'boundingBox', {
-				get() { return _boundingBox; },
-				set(value) {
-					_boundingBox = value;
+				get() {
+					return obj.getObjectByName("boxModel");
 				}
 			})
 
 			let _boundingBoxShadow;
-			//[jscastro] added property for boundingBox helper
+			//[jscastro] added property for boundingBox shadow helper
 			Object.defineProperty(obj, 'boundingBoxShadow', {
-				get() { return _boundingBoxShadow; },
-				set(value) {
-					_boundingBoxShadow = value;
+				get() {
+					return obj.getObjectByName("boxShadow");
 				}
 			})
 
@@ -183,53 +213,56 @@ Objects.prototype = {
 				//let's create 2 wireframes, one for the object and one to project on the floor position
 				let bb = obj.box3();
 				//create the group to return
-				let boxGrid = new THREE.Group();
-				boxGrid.name = "BoxGrid";
-				boxGrid.updateMatrixWorld(true);
+				let boxGroup = new THREE.Group();
+				boxGroup.name = "boxGroup";
+				boxGroup.updateMatrixWorld(true);
 				let boxModel = new THREE.Box3Helper(bb, Objects.prototype._defaults.colors.yellow);
-				boxModel.name = "BoxModel";
-				boxGrid.add(boxModel);
+				boxModel.name = "boxModel";
+				boxGroup.add(boxModel);
 				boxModel.layers.disable(0); // it makes the object invisible for the raycaster
-				obj.boundingBox = boxModel;
+				//obj.boundingBox = boxModel;
 
 				//it needs to clone, to avoid changing the object by reference
 				let bb2 = bb.clone();
 				//we make the second box flat and at the floor height level
 				bb2.max.z = bb2.min.z;
 				let boxShadow = new THREE.Box3Helper(bb2, Objects.prototype._defaults.colors.black);
-				boxShadow.name = "BoxShadow";
+				boxShadow.name = "boxShadow";
 
-				boxGrid.add(boxShadow);
+				boxGroup.add(boxShadow);
 				boxShadow.layers.disable(0); // it makes the object invisible for the raycaster
-				obj.boundingBoxShadow = boxShadow;
+				//obj.boundingBoxShadow = boxShadow;
 
-				boxGrid.visible = false; // visibility is managed from the parent
-				return boxGrid;
+				boxGroup.visible = false; // visibility is managed from the parent
+				obj.scaleGroup.add(boxGroup);
+				obj.setBoundingBoxShadowFloor();
 			}
 
 			//[jscastro] added method to position the shadow box on the floor depending the object height
 			obj.setBoundingBoxShadowFloor = function () {
-				if (obj.boundingBox) {
-					obj.boundingBoxShadow.box.max.z = -obj.modelHeight;
-					obj.boundingBoxShadow.box.min.z = -obj.modelHeight;
+				if (obj.boundingBoxShadow) {
+					let h = -obj.modelHeight, r = obj.rotation, o = obj.boundingBoxShadow;
+					o.box.max.z = o.box.min.z = h;
+					o.rotation.y = r.y;
+					o.rotation.x = -r.x;
 				}
 			}
 
 			//[jscastro] Set the positional and pivotal anchor automatically from string param  
 			obj.setAnchor = function (anchor) {
-				const box = obj.box3();
-				const size = box.getSize(new THREE.Vector3());
-				const center = box.getCenter(new THREE.Vector3());
+				const b = obj.box3();
+				//const size = b.getSize(new THREE.Vector3());
+				const c = b.getCenter(new THREE.Vector3());
 				obj.none = { x: 0, y: 0, z: 0 };
-				obj.center = { x: center.x, y: center.y, z: box.min.z };
-				obj.bottom = { x: center.x, y: box.max.y, z: box.min.z };
-				obj.bottomLeft = { x: box.max.x, y: box.max.y, z: box.min.z };
-				obj.bottomRight = { x: box.min.x, y: box.max.y, z: box.min.z };
-				obj.top = { x: center.x, y: box.min.y, z: box.min.z };
-				obj.topLeft = { x: box.max.x, y: box.min.y, z: box.min.z };
-				obj.topRight = { x: box.min.x, y: box.min.y, z: box.min.z };
-				obj.left = { x: box.max.x, y: center.y, z: box.min.z };
-				obj.right = { x: box.min.x, y: center.y, z: box.min.z };
+				obj.center = { x: c.x, y: c.y, z: b.min.z };
+				obj.bottom = { x: c.x, y: b.max.y, z: b.min.z };
+				obj.bottomLeft = { x: b.max.x, y: b.max.y, z: b.min.z };
+				obj.bottomRight = { x: b.min.x, y: b.max.y, z: b.min.z };
+				obj.top = { x: c.x, y: b.min.y, z: b.min.z };
+				obj.topLeft = { x: b.max.x, y: b.min.y, z: b.min.z };
+				obj.topRight = { x: b.min.x, y: b.min.y, z: b.min.z };
+				obj.left = { x: b.max.x, y: c.y, z: b.min.z };
+				obj.right = { x: b.min.x, y: c.y, z: b.min.z };
 
 				switch (anchor) {
 					case 'center':
@@ -274,26 +307,35 @@ Objects.prototype = {
 				//[jscastro] if the object options have an adjustment to center the 3D Object different to 0
 				if (center && (center.x != 0 || center.y != 0 || center.z != 0)) {
 					let size = obj.getSize();
-					obj.anchor = { x: -(size.x * center.x), y: -(size.y * center.y), z: -(size.z * center.z) };
+					obj.anchor = { x: obj.anchor.x - (size.x * center.x), y: obj.anchor.y - (size.y * center.y), z: obj.anchor.z - (size.z * center.z) };
 					obj.model.position.set(-obj.anchor.x, -obj.anchor.y, -obj.anchor.z)
 				}
 			}
 
-			let _label;
-			//[jscastro] added property for wireframes state
+			//[jscastro] added property for simulated label
 			Object.defineProperty(obj, 'label', {
-				get() { return _label; },
-				set(value) {
-					_label = value;
-				}
+				get() { return obj.getObjectByName(labelName); }
 			});
 
-			let _tooltip;
 			//[jscastro] added property for simulated tooltip
 			Object.defineProperty(obj, 'tooltip', {
-				get() { return _tooltip; },
+				get() { return obj.getObjectByName(tooltipName); }
+			});
+
+			//[jscastro] added property for help
+			Object.defineProperty(obj, 'help', {
+				get() { return obj.getObjectByName(helpName); }
+			});
+
+			let _hidden = false;
+			//[jscastro] added property for explicitely hidden object to avoid zoom layer behavior
+			Object.defineProperty(obj, 'hidden', {
+				get() { return _hidden; },
 				set(value) {
-					_tooltip = value;
+					if (_hidden != value) {
+						_hidden = value;
+						obj.visibility = !hidden;
+					}
 				}
 			});
 
@@ -313,12 +355,14 @@ Objects.prototype = {
 					}
 					else return;
 					if (obj.visible != _value) {
+						if (obj.hidden && _value) return;
+
 						obj.visible = _value;
 
 						if (obj.model) {
 							obj.model.traverse(function (c) {
 								if (c.type == "Mesh" || c.type == "SkinnedMesh") {
-									if (_value) {
+									if (_value && obj.raycasted) {
 										c.layers.enable(0); //this makes the meshes visible for raycast
 									} else {
 										c.layers.disable(0); //this makes the meshes invisible for raycast
@@ -334,91 +378,148 @@ Objects.prototype = {
 			});
 
 			//[jscastro] add CSS2 label method 
-			obj.addLabel = function (HTMLElement, visible = false, center = obj.anchor) {
+			obj.addLabel = function (HTMLElement, visible, center, height) {
 				if (HTMLElement) {
 					//we add it to the first children to get same boxing and position
 					//obj.children[0].add(obj.drawLabel(text, height));
-					obj.children[0].add(obj.drawLabelHTML(HTMLElement, visible, center));
+					obj.drawLabelHTML(HTMLElement, visible, center, height);
 				}
+			}
+
+			//[jscastro] remove CSS2 label method 
+			obj.removeLabel = function () {
+				obj.removeCSS2D(labelName);
 			}
 
 			//[jscastro] draw label method can be invoked separately
-			obj.drawLabelHTML = function (HTMLElement, visible = false, center = obj.anchor) {
-				let div = root.drawLabelHTML(HTMLElement, Objects.prototype._defaults.label.cssClass);
-				const box = obj.box3();
-				const size = box.getSize(new THREE.Vector3());
-				let bottomLeft = { x: box.max.x, y: box.max.y, z: box.min.z };
-				if (obj.label) { obj.label.remove; obj.label = null; }
-				obj.label = new CSS2D.CSS2DObject(div);
-				obj.label.position.set(((-size.x * 0.5) - obj.model.position.x - center.x + bottomLeft.x), ((-size.y * 0.5) - obj.model.position.y - center.y + bottomLeft.y), size.z * 0.5); //middle-centered
-				obj.label.visible = visible;
-				obj.label.alwaysVisible = visible;
-
-				return obj.label;
+			obj.drawLabelHTML = function (HTMLElement, visible = false, center = obj.anchor, height = 0.5) {
+				let divLabel = root.drawLabelHTML(HTMLElement, Objects.prototype._defaults.label.cssClass);
+				let label = obj.addCSS2D(divLabel, labelName, center, height) //label.position.set(((-size.x * 0.5) - obj.model.position.x - center.x + bottomLeft.x), ((-size.y * 0.5) - obj.model.position.y - center.y + bottomLeft.y), size.z * 0.5); //middle-centered
+				label.alwaysVisible = visible;
+				label.visible = visible;
+				return label;
 			}
 
 			//[jscastro] add tooltip method 
-			obj.addTooltip = function (tooltipText, mapboxStyle = false, center = obj.anchor) {
-				if (tooltipText) {
-					let divToolTip = root.drawTooltip(tooltipText, mapboxStyle);
+			obj.addTooltip = function (tooltipText, mapboxStyle, center, custom = true, height = 1) {
+				let t = obj.addHelp(tooltipText, tooltipName, mapboxStyle, center, height);
+				t.visible = false;
+				t.custom = custom;
+			}
+
+			//[jscastro] remove CSS2 tooltip method
+			obj.removeTooltip = function () {
+				obj.removeCSS2D(tooltipName);
+			}
+
+			//[jscastro] add tooltip method 
+			obj.addHelp = function (helpText, objName = helpName, mapboxStyle = false, center = obj.anchor, height = 0) {
+				let divHelp = root.drawTooltip(helpText, mapboxStyle);
+				let h = obj.addCSS2D(divHelp, objName, center, height);
+				h.visible = true;
+				return h;
+			}
+
+			//[jscastro] remove CSS2 tooltip method
+			obj.removeHelp = function () {
+				obj.removeCSS2D(helpName);
+			}
+
+			//[jscastro] add CSS2D help method 
+			obj.addCSS2D = function (element, objName, center = obj.anchor, height = 1) {
+				if (element) {
 					const box = obj.box3();
 					const size = box.getSize(new THREE.Vector3());
 					let bottomLeft = { x: box.max.x, y: box.max.y, z: box.min.z };
-					if (obj.tooltip) { obj.tooltip.remove; obj.tooltip = null; }
-					obj.tooltip = new CSS2D.CSS2DObject(divToolTip);
-					obj.tooltip.position.set(((-size.x * 0.5) - obj.model.position.x - center.x + bottomLeft.x), ((-size.y * 0.5) - obj.model.position.y - center.y + bottomLeft.y), size.z); //top-centered
-					obj.tooltip.visible = false; //only visible on mouseover or selected
-					//we add it to the first children to get same boxing and position
-					obj.children[0].add(obj.tooltip);
+					obj.removeCSS2D(objName);
+					let c = new CSS2D.CSS2DObject(element);
+					c.name = objName;
+					c.position.set(((-size.x * 0.5) - obj.model.position.x - center.x + bottomLeft.x), ((-size.y * 0.5) - obj.model.position.y - center.y + bottomLeft.y), size.z * height); 
+					c.visible = false; //only visible on mouseover or selected
+					obj.scaleGroup.add(c);
+					return c;
 				}
 			}
+
+			//[jscastro] remove CSS2 help method
+			obj.removeCSS2D = function (objName) {
+				let css2D = obj.getObjectByName(objName);
+				if (css2D) {
+					css2D.dispose();
+					let g = obj.scaleGroup.children;
+					g.splice(g.indexOf(css2D), 1);
+				}
+			}
+
+			//[jscastro] added property for help
+			Object.defineProperty(obj, 'shadowPlane', {
+				get() { return obj.getObjectByName(shadowPlane); }
+			});
 
 			let _castShadow = false;
 			//[jscastro] added property for traverse an object to cast a shadow
 			Object.defineProperty(obj, 'castShadow', {
 				get() { return _castShadow; },
 				set(value) {
-					if (_castShadow != value) {
-						obj.model.traverse(function (c) {
-							if (c.isMesh) c.castShadow = true;
-						});
-						if (value) {
-							// we add the shadow plane automatically 
-							const s = obj.modelSize;
-							const sizes = [s.x, s.y, s.z];
-							const planeSize = Math.max(...sizes) * 10;
-							const planeGeo = new THREE.PlaneBufferGeometry(planeSize, planeSize);
-							const planeMat = new THREE.ShadowMaterial();
-							planeMat.opacity = 0.5;
-							let plane = new THREE.Mesh(planeGeo, planeMat);
-							plane.layers.enable(1); plane.layers.disable(0); // it makes the object invisible for the raycaster
-							plane.receiveShadow = value;
-							obj.add(plane);
-						} else {
-							// or we remove it 
-							obj.traverse(function (c) {
-								if (c.isMesh && c.material instanceof THREE.ShadowMaterial)
-									obj.remove(c);	
-							});
+					if (!obj.model || _castShadow === value) return;
 
-						}
-						_castShadow = value;
+					obj.model.traverse(function (c) {
+						if (c.isMesh) c.castShadow = true;
+					});
+					if (value) {
+						// we add the shadow plane automatically 
+						const s = obj.modelSize;
+						const sz = [s.x, s.y, s.z, obj.modelHeight];
+						const pSize = Math.max(...sz) * 10;
+						const pGeo = new THREE.PlaneBufferGeometry(pSize, pSize);
+						const pMat = new THREE.ShadowMaterial();
+						//const pMat = new THREE.MeshStandardMaterial({ color: 0x660000 });
+						pMat.opacity = 0.5;
+						let p = new THREE.Mesh(pGeo, pMat);
+						p.name = shadowPlane;
+						p.layers.enable(1); p.layers.disable(0); // it makes the object invisible for the raycaster
+						p.receiveShadow = value;
+						obj.add(p);
+					} else {
+						// or we remove it 
+						obj.traverse(function (c) {
+							if (c.isMesh && c.material instanceof THREE.ShadowMaterial)
+								obj.remove(c);
+						});
+
 					}
+					_castShadow = value;
+
 				}
 			})
 
+			//[jscastro] added method to position the shadow box on the floor depending the object height
+			obj.setReceiveShadowFloor = function () {
+				if (obj.castShadow) {
+					let sp = obj.shadowPlane, p = sp.position, r = sp.rotation;
+					p.z = -obj.modelHeight;
+					r.y = obj.rotation.y;
+					r.x = -obj.rotation.x;
+					if (obj.userData.units === 'meters') {
+						const s = obj.modelSize;
+						const sz = [s.x, s.y, s.z, -p.z];
+						const ps = Math.max(...sz) * 10;
+						const sc = ps / sp.geometry.parameters.width;
+						sp.scale.set(sc, sc, sc);
+					}
+				}
+			}
+
 			let _receiveShadow = false;
-			//[jscastro] added property for traverse an object to cast a shadow
+			//[jscastro] added property for traverse an object to receive a shadow
 			Object.defineProperty(obj, 'receiveShadow', {
 				get() { return _receiveShadow; },
 				set(value) {
-					if (_receiveShadow != value) {
-
-						obj.model.traverse(function (c) {
-							if (c.isMesh) c.receiveShadow = true;
-						});
-						_receiveShadow = value;
-					}
+					if (!obj.model || _receiveShadow === value) return;
+					obj.model.traverse(function (c) {
+						if (c.isMesh) c.receiveShadow = true;
+					});
+					_receiveShadow = value;
 				}
 			})
 
@@ -427,33 +528,72 @@ Objects.prototype = {
 			Object.defineProperty(obj, 'wireframe', {
 				get() { return _wireframe; },
 				set(value) {
-					if (_wireframe != value) {
+					if (!obj.model || _wireframe === value) return;
+					obj.model.traverse(function (c) {
+						if (c.type == "Mesh" || c.type == "SkinnedMesh") {
+							let materials = [];
+							if (!Array.isArray(c.material)) {
+								materials.push(c.material);
+							} else {
+								materials = c.material;
+							}
+							let m = materials[0];
+							if (value) {
+								c.userData.materials = m;
+								c.material = m.clone();
+								c.material.wireframe = c.material.transparent = value;
+								c.material.opacity = 0.3;
+							} else {
+								c.material.dispose();
+								c.material = c.userData.materials;
+								c.userData.materials.dispose();
+								c.userData.materials = null;
+							}
 
-						obj.model.traverse(function (c) {
-							if (c.type == "Mesh" || c.type == "SkinnedMesh") {
-								let arrMaterial = [];
-								if (!Array.isArray(c.material)) {
-									arrMaterial.push(c.material);
-								} else {
-									arrMaterial = c.material;
-								}
-								arrMaterial.forEach(function (m) {
-									m.opacity = (value ? 0.5 : 1);
-									//m.transparent = value;
-									m.wireframe = value;
-								});
-								if (value) { c.layers.disable(0); c.layers.enable(1); } else { c.layers.disable(1); c.layers.enable(0); }
-							}
-							if (c.type == "LineSegments") {
-								c.layers.disableAll();
-							}
-						});
-						_wireframe = value;
-						// Dispatch new event WireFramed
-						obj.dispatchEvent(new CustomEvent('Wireframed', { detail: obj, bubbles: true, cancelable: true }));
-					}
+							if (value) { c.layers.disable(0); c.layers.enable(1); } else { c.layers.disable(1); c.layers.enable(0); }
+						}
+						if (c.type == "LineSegments") {
+							c.layers.disableAll();
+						}
+					});
+					_wireframe = value;
+					// Dispatch new event WireFramed
+					obj.dispatchEvent({ type: 'Wireframed', detail: obj });
 				}
 			})
+
+			let _color = null;
+			//[jscastro] added property for wireframes state
+			Object.defineProperty(obj, 'color', {
+				get() { return _color; },
+				set(value) {
+					if (!obj.model || _color === value) return;
+					obj.model.traverse(function (c) {
+						if (c.type == "Mesh" || c.type == "SkinnedMesh") {
+							let materials = [];
+							if (!Array.isArray(c.material)) {
+								materials.push(c.material);
+							} else {
+								materials = c.material;
+							}
+							let m = materials[0];
+							if (value) {
+								c.userData.materials = m;
+								c.material = new THREE.MeshStandardMaterial();
+								c.material.color.setHex(value);
+							} else {
+								c.material.dispose();
+								c.material = c.userData.materials;
+								c.userData.materials.dispose();
+								c.userData.materials = null;
+							}
+
+						}
+					});
+					_color = value;
+				}
+			})
+
 
 			let _selected = false;
 			//[jscastro] added property for selected state
@@ -461,7 +601,8 @@ Objects.prototype = {
 				get() { return _selected; },
 				set(value) {
 					if (value) {
-						if (obj.boundingBox) {
+						if (obj.userData.bbox && !obj.boundingBox) obj.drawBoundingBox();
+						if (obj.boxGroup) {
 							obj.boundingBox.material = Objects.prototype._defaults.materials.boxSelectedMaterial;
 							obj.boundingBox.parent.visible = true;
 							obj.boundingBox.layers.enable(1);
@@ -470,23 +611,36 @@ Objects.prototype = {
 						if (obj.label && !obj.label.alwaysVisible) obj.label.visible = true;
 					}
 					else {
-						if (obj.boundingBox) {
-							obj.boundingBox.parent.visible = false;
-							obj.boundingBox.layers.disable(1);
-							obj.boundingBoxShadow.layers.disable(1);
-							obj.boundingBox.material = Objects.prototype._defaults.materials.boxNormalMaterial;
+						if (obj.boxGroup) {
+							obj.remove(obj.boxGroup); //remove the box group
 						}
 						if (obj.label && !obj.label.alwaysVisible) obj.label.visible = false;
+						obj.removeHelp();
 					}
 					if (obj.tooltip) obj.tooltip.visible = value;
 					//only fire the event if value is different
 					if (_selected != value) {
 						_selected = value;
 						// Dispatch new event SelectedChange
-						obj.dispatchEvent(new CustomEvent('SelectedChange', { detail: obj, bubbles: true, cancelable: true }));
+						obj.dispatchEvent({ type: 'SelectedChange', detail: obj });
 					}
 				}
 			})
+
+			let _raycasted = true;
+			//[jscastro] added property for including/excluding an object from raycast
+			Object.defineProperty(obj, 'raycasted', {
+				get() { return _raycasted; },
+				set(value) {
+					if (!obj.model || _raycasted === value) return;
+					obj.model.traverse(function (c) {
+						if (c.type == "Mesh" || c.type == "SkinnedMesh") {
+							if (!value) { c.layers.disable(0); c.layers.enable(1); } else { c.layers.disable(1); c.layers.enable(0); }
+						}
+					});
+					_raycasted = value;
+				}
+			});
 
 			let _over = false;
 			//[jscastro] added property for over state
@@ -495,7 +649,9 @@ Objects.prototype = {
 				set(value) {
 					if (value) {
 						if (!obj.selected) {
-							if (obj.boundingBox) {
+							if (obj.userData.bbox && !obj.boundingBox) obj.drawBoundingBox();
+							if (obj.userData.tooltip && !obj.tooltip) obj.addTooltip(obj.uuid, true, obj.anchor, false);
+							if (obj.boxGroup) {
 								obj.boundingBox.material = Objects.prototype._defaults.materials.boxOverMaterial;
 								obj.boundingBox.parent.visible = true;
 								obj.boundingBox.layers.enable(1);
@@ -504,21 +660,19 @@ Objects.prototype = {
 						}
 						if (obj.label && !obj.label.alwaysVisible) { obj.label.visible = true; }
 						// Dispatch new event ObjectOver
-						obj.dispatchEvent(new CustomEvent('ObjectMouseOver', { detail: obj, bubbles: true, cancelable: true }));
+						obj.dispatchEvent({ type: 'ObjectMouseOver', detail: obj });
 
 					}
 					else {
 						if (!obj.selected) {
-							if (obj.boundingBox) {
-								obj.boundingBox.parent.visible = false;
-								obj.boundingBox.layers.disable(1);
-								obj.boundingBoxShadow.layers.disable(1);
-								obj.boundingBox.material = Objects.prototype._defaults.materials.boxNormalMaterial;
+							if (obj.boxGroup) {
+								obj.remove(obj.boxGroup); //remove the box group
+								if (obj.tooltip && !obj.tooltip.custom) obj.removeTooltip();
 							}
 							if (obj.label && !obj.label.alwaysVisible) { obj.label.visible = false; }
 						}
 						// Dispatch new event ObjectOver
-						obj.dispatchEvent(new CustomEvent('ObjectMouseOut', { detail: obj, bubbles: true, cancelable: true }));
+						obj.dispatchEvent({ type: 'ObjectMouseOut', detail: obj });
 					}
 					if (obj.tooltip) obj.tooltip.visible = value || obj.selected;
 					_over = value;
@@ -535,19 +689,19 @@ Objects.prototype = {
 				if (obj.model) {
 					//let's clone the object before manipulate it
 					let dup = obj.clone(true);
-					dup.model = obj.model.clone();
+					let model = obj.model.clone();
 					//get the size of the model because the object is translated and has boundingBoxShadow
-					bounds = new THREE.Box3().setFromObject(dup.model);
+					bounds = new THREE.Box3().setFromObject(model);
 					//if the object has parent it's already in the added to world so it's scaled and it could be rotated
 					if (obj.parent) {
 						//first, we return the object to it's original position of rotation, extract rotation and apply inversed
 						let rm = new THREE.Matrix4();
 						let rmi = new THREE.Matrix4();
 						obj.matrix.extractRotation(rm);
-						rm.getInverse(rmi);
+						rmi.copy(rm).invert();
 						dup.setRotationFromMatrix(rmi);
 						//now the object inside will give us a NAABB Non-Axes Aligned Bounding Box 
-						bounds = new THREE.Box3().setFromObject(dup.model);
+						bounds = new THREE.Box3().setFromObject(model);
 					}
 				}
 				return bounds;
@@ -568,7 +722,6 @@ Objects.prototype = {
 			Object.defineProperty(obj, 'modelSize', {
 				get() {
 					_modelSize = obj.getSize();
-					//console.log(_modelSize);
 					return _modelSize;
 				},
 				set(value) {
@@ -578,71 +731,177 @@ Objects.prototype = {
 				}
 			})
 
-			//[jscastro]
-			obj.modelHeight = 0;
+
+			//[jscastro] added property to get modelHeight
+			Object.defineProperty(obj, 'modelHeight', {
+				get() {
+					let h = obj.coordinates[2] || 0;
+					if (obj.userData.units === 'scene') h *= (obj.unitsPerMeter / obj.scale.x);
+					return h;
+				}
+			});
+
+			//[jscastro] added property to calculate the units per meter in a given latitude
+			//reduced to 7 decimals to avoid deviations on the size of the same object  
+			Object.defineProperty(obj, 'unitsPerMeter', {
+				get() { return Number(utils.projectedUnitsPerMeter(obj.coordinates[1]).toFixed(7)); }
+			});
+
+			let _fixedZoom = null;
+			//[jscastro] added property to have a fixed scale for some objects
+			Object.defineProperty(obj, 'fixedZoom', {
+				get() { return obj.userData.fixedZoom; },
+				set(value) {
+					if (obj.userData.fixedZoom === value) return;
+					obj.userData.fixedZoom = value;
+					obj.userData.units = (value ? 'scene' : 'meters');
+				}
+			});
+
+			//[jscastro] sets the scale of an object based fixedZoom
+			obj.setFixedZoom = function (scale) {
+				if (obj.fixedZoom != null) {
+					if (!scale) scale = obj.userData.mapScale;
+					let s = zoomScale(obj.fixedZoom);
+					if (s > scale) {
+						let calc = s / scale;
+						obj.scale.set(calc, calc, calc);
+					} else {
+						obj.scale.set(1, 1, 1);
+					}
+				}
+			}
+
+			//[jscastro] sets the scale of an object based in the scale and fixedZoom
+			obj.setScale = function (scale) {
+				// scale the model so that its units are interpreted as meters at the given latitude
+				if (obj.userData.units === 'meters' && !obj.fixedZoom) {
+					let s = obj.unitsPerMeter;
+					obj.scale.set(s, s, s);
+				} else if (obj.fixedZoom) {
+					if (scale) obj.userData.mapScale = scale;
+					obj.setFixedZoom(obj.userData.mapScale); //apply fixed zoom
+				} else obj.scale.set(1, 1, 1);
+			} 
+
+			function zoomScale(zoom) { return Math.pow(2, zoom); }
+
+			//[jscastro] sets the scale and shadows position of an object based in the scale
+			obj.setObjectScale = function (scale) {
+				obj.setScale(scale);
+				obj.setBoundingBoxShadowFloor();
+				obj.setReceiveShadowFloor();
+			} 
 
 		}
 
 		obj.add = function (o) {
-			obj.children[0].add(o);
+			obj.scaleGroup.add(o);
 			o.position.z = (obj.coordinates[2] ? -obj.coordinates[2] : 0);
 			return o;
 		}
 
 		obj.remove = function (o) {
-			obj.children[0].remove(o);
+			if (!o) return;
+			o.traverse(m => {
+				//console.log('dispose geometry!')
+				if (m.geometry) m.geometry.dispose();
+				if (m.material) {
+					if (m.material.isMaterial) {
+						cleanMaterial(m.material)
+					} else {
+						// an array of materials
+						for (const material of m.material) cleanMaterial(material)
+					}
+				}
+				if (m.dispose) m.dispose();
+			})
+
+			obj.scaleGroup.remove(o);
 			tb.map.repaint = true;
 		}
 
 		//[jscastro] clone + assigning all the attributes
-		obj.duplicate = function () {
-			var dupe = obj.clone(true);
-			dupe.userData = obj.userData;
-			dupe.model = dupe.children[0].children[0];
-			dupe.animations = dupe.model.animations;
-			root._addMethods(dupe);
-			dupe.deepCopy(obj);
+		obj.duplicate = function (options) {
 
-			return dupe;
+			let dupe = obj.clone(true);	//clone the whole threebox object
+			dupe.getObjectByName("model").animations = obj.animations; //we must set this explicitly before addMethods
+			if (dupe.userData.feature) {
+				if (options && options.feature) dupe.userData.feature = options.feature;
+				dupe.userData.feature.properties.uuid = dupe.uuid;
+			}
+			root._addMethods(dupe); // add methods
+
+			if (!options || utils.equal(options.scale, obj.userData.scale)) {
+				//no options, no changes, just return the same object
+				dupe.copyAnchor(obj); // copy anchors
+				//[jscastro] we add by default a tooltip that can be overriden later or hide it with threebox `enableTooltips`
+				return dupe;
+			} else {
+				dupe.userData = options;
+				dupe.userData.isGeoGroup = true;
+				dupe.remove(dupe.boxGroup);
+				// [jscastro] rotate and scale the model
+				const r = utils.types.rotation(options.rotation, [0, 0, 0]);
+				const s = utils.types.scale(options.scale, [1, 1, 1]);
+				// [jscastro] reposition to 0,0,0
+				dupe.model.position.set(0, 0, 0);
+				// rotate and scale
+				dupe.model.rotation.set(r[0], r[1], r[2]);
+				dupe.model.scale.set(s[0], s[1], s[2]);
+				//[jscastro] calculate automatically the pivotal center of the object
+				dupe.setAnchor(options.anchor);
+				//[jscastro] override the center calculated if the object has adjustments
+				dupe.setCenter(options.adjustment);
+				return dupe;
+
+			}
+
 		}
 
-		obj.deepCopy = function (o) {
+		//[jscastro] copy anchor values
+		obj.copyAnchor = function (o) {
 
 			obj.anchor = o.anchor;
+			obj.none = { x: 0, y: 0, z: 0 };
+			obj.center = o.center;
 			obj.bottom = o.bottom;
 			obj.bottomLeft = o.bottomLeft;
 			obj.bottomRight = o.bottomRight;
-			obj.center = o.center;
-			obj.left = o.left;
-			obj.right = o.right;
 			obj.top = o.top;
 			obj.topLeft = o.topLeft;
 			obj.topRight = o.topRight;
-			obj.boundingBox = obj.children[0].children[1].children[0];
-			obj.boundingBoxShadow = obj.children[0].children[1].children[1];
-			obj.tooltip = obj.children[0].children[2];
+			obj.left = o.left;
+			obj.right = o.right;
 
-			return obj;
 		}
 
 		obj.dispose = function () {
-			obj.traverse(object => {
-				if (!object.isMesh) return
+
+			Objects.prototype.unenroll(obj);
+
+			obj.traverse(o => {
+				//don't dispose th object itself as it will be recursive
+				if (o.parent && o.parent.name == "world") return;
+				if (o.name === "threeboxObject") return;
 
 				//console.log('dispose geometry!')
-				object.geometry.dispose()
+				if (o.geometry) o.geometry.dispose();
 
-				if (object.material.isMaterial) {
-					cleanMaterial(object.material)
-				} else {
-					// an array of materials
-					for (const material of object.material) cleanMaterial(material)
+				if (o.material) {
+					if (o.material.isMaterial) {
+						cleanMaterial(o.material)
+					} else {
+						// an array of materials
+						for (const material of o.material) cleanMaterial(material)
+					}
 				}
+				if (o.dispose) o.dispose();
+
 			})
 
-			if (obj.label) { obj.label.dispose() };
-			if (obj.tooltip) { obj.tooltip.dispose() };
-			if (obj.model) { obj.model = {} };
+			obj.children = [];
+
 		}
 
 		const cleanMaterial = material => {
@@ -678,20 +937,22 @@ Objects.prototype = {
 	},
 
 	_makeGroup: function (obj, options) {
+		let projScaleGroup = new THREE.Group();
+		projScaleGroup.name = "scaleGroup";
+		projScaleGroup.add(obj)
+
 		var geoGroup = new THREE.Group();
 		geoGroup.userData = options || {};
 		geoGroup.userData.isGeoGroup = true;
 		if (geoGroup.userData.feature) {
 			geoGroup.userData.feature.properties.uuid = geoGroup.uuid;
 		}
-		var isArrayOfObjects = obj.length;
+		var isArrayOfObjects = projScaleGroup.length;
+		if (isArrayOfObjects) for (o of projScaleGroup) geoGroup.add(o)
+		else geoGroup.add(projScaleGroup);
 
-		if (isArrayOfObjects) for (o of obj) geoGroup.add(o)
-
-
-		else geoGroup.add(obj);
-
-		utils._flipMaterialSides(obj);
+		//utils._flipMaterialSides(projScaleGroup);
+		geoGroup.name = "threeboxObject";
 
 		return geoGroup
 	},
@@ -737,7 +998,6 @@ Objects.prototype = {
 		} else {
 			div.innerHTML = HTMLElement.outerHTML;
 		}
-		//div.style.marginTop = '-' + bottomMargin + 'em';
 		return div;
 	},
 
@@ -762,29 +1022,31 @@ Objects.prototype = {
 			opacity: 1
 		},
 
-		sphere: {
-			position: [0, 0, 0],
-			radius: 1,
-			sides: 20,
-			units: 'scene',
-			material: 'MeshBasicMaterial',
-			anchor: 'bottom-left'
-		},
-
 		label: {
 			htmlElement: null,
 			cssClass: " label3D",
 			alwaysVisible: false,
-			topMargin: -0.5,
-			feature: null
+			topMargin: -0.5
 		},
 
 		tooltip: {
 			text: '',
 			cssClass: 'toolTip text-xs',
 			mapboxStyle: false,
-			topMargin: 0,
-			feature: null
+			topMargin: 0
+		},
+
+		sphere: {
+			position: [0, 0, 0],
+			radius: 1,
+			sides: 20,
+			units: 'scene',
+			material: 'MeshBasicMaterial',
+			anchor: 'bottom-left',
+			bbox: true,
+			tooltip: true,
+			raycasted: true
+
 		},
 
 		tube: {
@@ -793,16 +1055,10 @@ Objects.prototype = {
 			sides: 6,
 			units: 'scene',
 			material: 'MeshBasicMaterial',
-			anchor: 'center'
-		},
-
-		extrusion: {
-			footprint: null,
-			base: 0,
-			top: 100,
-			color: 'black',
-			material: 'MeshBasicMaterial',
-			scaleToLatitude: false
+			anchor: 'center',
+			bbox: true,
+			tooltip: true,
+			raycasted: true
 		},
 
 		loadObj: {
@@ -812,13 +1068,35 @@ Objects.prototype = {
 			scale: 1,
 			rotation: 0,
 			defaultAnimation: 0,
-			anchor: 'bottom-left'
+			anchor: 'bottom-left',
+			bbox: true,
+			tooltip: true,
+			raycasted: true,
+			clone: true
 		},
 
 		Object3D: {
 			obj: null,
 			units: 'scene',
-			anchor: 'bottom-left'
+			anchor: 'bottom-left',
+			bbox: true,
+			tooltip: true, 
+			raycasted: true
+		},
+
+		extrusion: {
+			coordinates: [[[]]],
+			geometryOptions: {},
+			height: 100,
+			materials: null,
+			scale: 1,
+			rotation: 0,
+			units: 'scene',
+			anchor: 'center',
+			bbox: true,
+			tooltip: true,
+			raycasted: true
+
 		}
 	},
 
