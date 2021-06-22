@@ -1272,7 +1272,6 @@ Threebox.prototype = {
 		map_objects.forEach((object) => {
 
 			const lod_values = object.lod;
-			
 			if (lod_values) {
 				const new_lod_object = this.findNewLODObject(lod_values);
 
@@ -1301,7 +1300,7 @@ Threebox.prototype = {
 				closest_zoom_value = lod.zoom;
 			}
 		});
-		return lod_values.find(lod_value => lod_value.zoom === closest_zoom_value).obj;
+		return lod_values.find(lod_value => lod_value.zoom === closest_zoom_value).obj.duplicate();
 	},
 
 	/**
