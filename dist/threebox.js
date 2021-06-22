@@ -1594,7 +1594,7 @@ Threebox.prototype = {
 
 	programs: function () { return this.renderer.info.programs.length },
 
-	version: '2.2.4',
+	version: 'alpha-lod-2.2.4',
 
 }
 
