@@ -823,8 +823,20 @@ Objects.prototype = {
 
 		//[jscastro] clone + assigning all the attributes
 		obj.duplicate = function (options) {
-
+			let lod;
+			
+			// if lod is enabled
+			if (obj.lod) {
+				lod = obj.lod;
+			}
+			
 			let dupe = obj.clone(true);	//clone the whole threebox object
+			
+			// readd lod
+			if (lod) {
+				dupe.lod = lod;
+			}
+
 			dupe.getObjectByName("model").animations = obj.animations; //we must set this explicitly before addMethods
 			if (dupe.userData.feature) {
 				if (options && options.feature) dupe.userData.feature = options.feature;

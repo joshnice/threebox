@@ -93,6 +93,9 @@
 			tb.addLODLevel(red_lorry, 18);
 			tb.addLODLevel(red_lorry, 19, blue_lorry);
 			tb.add(red_lorry);
+			const dupLorry = red_lorry.duplicate();
+			dupLorry.setCoords([origin[0] + 0.0005, origin[1] + 0.0005]);
+			tb.add(dupLorry);
 		}
 
 		// returns an options object for when model is added
