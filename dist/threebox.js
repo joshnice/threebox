@@ -1546,9 +1546,11 @@ Threebox.prototype = {
 				const new_lod_object = this.findNewLODObject(lod_values);
 
 				if (new_lod_object && new_lod_object.uuid !== object.uuid) {
+					const visibleValue = object.visible;
 					this.remove(object);
 					const new_object = new_lod_object.setCoords(object.coordinates);
 					new_object.lod = lod_values;
+					new_object.visible = visibleValue;
 					this.add(new_object);
 				}
 			}
